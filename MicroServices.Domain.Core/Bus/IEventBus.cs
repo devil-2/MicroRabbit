@@ -1,13 +1,10 @@
 ﻿using MicroServices.Domain.Core.Commands;
-using System;
-using System.Collections.Generic;
-using System.Text;
 using System.Threading.Tasks;
 using MicroServices.Domain.Core.Events;
 
 namespace MicroServices.Domain.Core.Bus
 {
- 	public interface IEventBus
+	public interface IEventBus
 	{
 		Task SendCommand<T>(T command) where T:Command;
 
