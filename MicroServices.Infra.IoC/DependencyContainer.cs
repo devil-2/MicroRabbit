@@ -1,9 +1,6 @@
 ﻿using MicroServices.Domain.Core.Bus;
 using MicroServices.Infra.Bus;
 using Microsoft.Extensions.DependencyInjection;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace MicroServices.Infra.IoC
 {
@@ -11,8 +8,8 @@ namespace MicroServices.Infra.IoC
 	{
 		public static void RegisterServices(IServiceCollection services)
 		{
+			//Domain Bus
 			services.AddTransient<IEventBus, RabbitMQBus>();
-
 		}
 	}
 }
