@@ -1,9 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+﻿using System.Collections.Generic;
 using MicroServices.Banking.Application.Interfaces;
+using MicroServices.Banking.Application.Models;
 using MicroServices.Banking.Domain.Models;
+using MicroServices.Domain.Core.Bus;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MicroServices.Banking.Api.Controllers
@@ -13,8 +12,8 @@ namespace MicroServices.Banking.Api.Controllers
 	public class BankingController : ControllerBase
 	{
 		private readonly IAccountService _accountService;
-
-		public BankingController(IAccountService accountService )
+	
+		public BankingController(IAccountService accountService, IEventBus bus)
 		{
 			_accountService = accountService;
 		}
@@ -26,6 +25,12 @@ namespace MicroServices.Banking.Api.Controllers
 			return Ok(_accountService.GetAccounts());
 		}
 
+		[HttpPost]
+		public IActionResult Post([FromBody] AccountTransfer accountTransfer)
+		{
+			_accountService.Transfer(accountTransfer);
+			return Ok(accountTransfer);
+		}
 		//// GET api/values/5
 		//[HttpGet("{id}")]
 		//public ActionResult<string> Get(int id)
