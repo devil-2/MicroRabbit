@@ -2,14 +2,15 @@
 using MicroServices.Domain.Core.Bus;
 using MicroServices.Domain.Core.Commands;
 using MicroServices.Domain.Core.Events;
+using Microsoft.Extensions.DependencyInjection;
+using Newtonsoft.Json;
 using RabbitMQ.Client;
+using RabbitMQ.Client.Events;
 using System;
-using System.Linq;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Newtonsoft.Json;
-using RabbitMQ.Client.Events;
 
 namespace MicroServices.Infra.Bus
 {
@@ -18,10 +19,12 @@ namespace MicroServices.Infra.Bus
 		private readonly IMediator _mediator;
 		private readonly Dictionary<string, List<Type>> _handlers;
 		private readonly List<Type> _eventTypes;
+		private readonly IServiceScopeFactory _serviceScopeFactory;
 
-		public RabbitMQBus(IMediator mediator)
+		public RabbitMQBus(IMediator mediator, IServiceScopeFactory serviceScopeFactory)
 		{
 			_mediator = mediator;
+			_serviceScopeFactory = serviceScopeFactory;
 			_handlers = new Dictionary<string, List<Type>>();
 			_eventTypes = new List<Type>();
 		}
@@ -53,7 +56,7 @@ namespace MicroServices.Infra.Bus
 			var eventType = typeof(T);
 			var handlerType = typeof(TH);
 			var eventName = eventType.Name;
-			
+
 			if (!_eventTypes.Contains(eventType))
 			{
 				_eventTypes.Add(eventType);
@@ -64,7 +67,7 @@ namespace MicroServices.Infra.Bus
 				_handlers.Add(eventName, new List<Type>());
 			}
 
-			if (_handlers[eventName].Any(s=>s.GetType() == handlerType))
+			if (_handlers[eventName].Any(s => s.GetType() == handlerType))
 			{
 				throw new ArgumentException(
 					$"Handler Type{handlerType.Name} is already registered for " +
@@ -77,9 +80,10 @@ namespace MicroServices.Infra.Bus
 
 		private void StartBasicConsume<T>() where T : Event
 		{
-			var factory = new ConnectionFactory() {
+			var factory = new ConnectionFactory()
+			{
 				HostName = "localhost",
-				DispatchConsumersAsync =true
+				DispatchConsumersAsync = true
 			};
 			var connection = factory.CreateConnection();
 			var channel = connection.CreateModel();
@@ -108,6 +112,26 @@ namespace MicroServices.Infra.Bus
 		}
 
 		private async Task ProcessEvent(string eventName, string message)
+		{
+			if (_handlers.ContainsKey(eventName))
+			{
+				var subscriptions = _handlers[eventName];
+				using (var scope = _serviceScopeFactory.CreateScope())
+				{
+					foreach (var subscription in subscriptions)
+					{
+						var handler = scope.ServiceProvider.GetService(subscription);
+						if (handler == null) continue;
+						var eventType = _eventTypes.SingleOrDefault(t => t.Name == eventName);
+						var @event = JsonConvert.DeserializeObject(message, eventType);
+						var concreteType = typeof(IEventHandler<>).MakeGenericType(eventType);
+						await (Task)concreteType.GetMethod("Handle").Invoke(handler, new object[] { @event });
+					}
+				}
+
+			}
+		}
+		private async Task ProcessEvent_b(string eventName, string message)
 		{
 			if (_handlers.ContainsKey(eventName))
 			{
